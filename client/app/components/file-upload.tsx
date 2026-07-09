@@ -6,9 +6,18 @@ export default function FileUploadComponent() {
       const el = document.createElement('input');
       el.setAttribute('type', 'file');  
       el.setAttribute('accept', 'application/pdf');
-      el.addEventListener('change', (ev) => {
+      el.addEventListener('change', async (ev) => {
         if(el.files && el.files.length > 0) {
             const file = el.files.item(0);
+            if(file){
+              const formdata = new FormData();
+              formdata.append('pdf', file);
+
+             await fetch('http://localhost:8000/upload/pdf' , {
+                method: 'POST',
+                body: formdata
+              });
+            }
         }
       });
       el.click();
