@@ -1,13 +1,13 @@
-import FileUploadComponent from "./components/file-upload";
+import RagChat from './components/rag-chat';
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
 
+export default async function Home() {
+  const { userId } = await auth();
 
-export default function Home() {
-  return (
-   <div className="flex min-h-screen w-screen">
-      <div className="w-[30vw] min-h-screen p-4 flex justify-center items-center">
-        <FileUploadComponent/>
-      </div>
-      <div className="w-[70vw] min-h-screen border-l-2">2</div>
-   </div>
-  );
+  if (!userId) {
+    redirect('/auth');
+  }
+
+  return <RagChat />;
 }
