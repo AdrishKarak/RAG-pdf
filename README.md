@@ -36,6 +36,28 @@ docker-compose.yml  Local Qdrant and Valkey services
 Architecture.md System architecture and data flow
 ```
 
+## Architecture Diagram
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant B as Browser
+  participant C as Next.js Client
+  participant S as Express Server
+  participant Q as Qdrant
+  participant V as Valkey
+  participant G as Groq
+
+  U->>B: Sign in, upload PDF, ask question
+  B->>C: Render app and send requests
+  C->>S: POST /upload/pdf or GET /chat
+  S->>S: Parse PDF or build retrieval context
+  S->>Q: Store or fetch document payloads
+  S->>G: Generate answer from context
+  S-->>C: Return answer and retrieved sources
+  V-->>S: Support worker queue path when used
+```
+
 ## Requirements
 
 - Node.js 18+ or newer
