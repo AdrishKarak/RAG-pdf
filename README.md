@@ -1,74 +1,65 @@
 # PDF RAG Chat
 
-An open-source local RAG app for uploading PDF files and asking questions against their contents.
+An open-source, local RAG (Retrieval-Augmented Generation) application for uploading PDF files, chunking/indexing them asynchronously, and answering natural-language queries grounded in their contents.
 
-The project is split into:
+The project features a decoupled, modular production architecture:
+- `client/` - Next.js UI workspace with Clerk authentication.
+- `server/` - Express API server, background BullMQ worker, and RAG service modules.
+- `docker-compose.yml` - Local Valkey and Qdrant database services.
 
-- `client/` - Next.js UI with Clerk authentication
-- `server/` - Express API for PDF upload and retrieval
-- `docker-compose.yml` - local Qdrant and Valkey services
+---
 
-## What It Does
+## Features
 
-- Upload a PDF from the browser
-- Extract and store the document in Qdrant
-- Ask natural-language questions about the uploaded PDFs
-- Return answers grounded in the retrieved document context
+- **Decoupled Architecture**: Routes, workers, vector databases, splitters, and models are isolated in their own folders.
+- **Asynchronous Queue Ingestion**: Ingests files using BullMQ queues backed by Valkey to keep the main event-loop responsive.
+- **Hierarchical Text Chunking**: Splits document pages into overlapping chunks using a recursive character text splitter.
+- **Smart Retrieval**: Ingests documents, chunks them recursively, and performs lexical term and phrase frequency matching to feed the context window.
+- **High-Speed Generation**: Answers are generated using Groq (Llama 3.3).
 
-## Tech Stack
-
-- Frontend: Next.js, React, TypeScript, Tailwind CSS
-- Auth: Clerk
-- API: Express
-- PDF parsing: `@langchain/community`
-- Vector store: Qdrant
-- LLM: Groq
-- Queueing worker: BullMQ
-- Local infra: Docker Compose, Valkey, Qdrant
+---
 
 ## Repository Layout
 
 ```text
-client/      Next.js app and UI
-server/      Express API, worker, uploads, and env file
-docker-compose.yml  Local Qdrant and Valkey services
-.env.example Example environment variables for the project
-Architecture.md System architecture and data flow
+client/                 Next.js frontend app and React components
+server/
+  ├── src/
+  │     ├── config/      Configuration loader
+  │     ├── ingestion/   Document parsers
+  │     ├── chunking/    Text splitting services
+  │     ├── embeddings/  SimpleEmbeddings model registry
+  │     ├── vectorstore/ Qdrant adapters
+  │     ├── retrieval/   Search routing and scoring (retriever, reranker)
+  │     ├── llm/         Groq completion client
+  │     ├── prompts/     System instruction templates
+  │     ├── queue/       BullMQ jobs and worker processes
+  │     ├── api/         Express route controller actions
+  │     └── app.js       Express entrypoint
+  ├── uploads/           Raw uploaded PDF storage
+  └── package.json       Backend scripts and dependency specifications
+Architecture.md         Detailed system design and diagrams
+Learning-journal.md     Development logs, concept review, and lessons learned
+docker-compose.yml      Container definitions for Qdrant and Valkey
 ```
 
-## Architecture Diagram
+---
 
-```mermaid
-sequenceDiagram
-  participant U as User
-  participant B as Browser
-  participant C as Next.js Client
-  participant S as Express Server
-  participant Q as Qdrant
-  participant V as Valkey
-  participant G as Groq
+## Prerequisites
 
-  U->>B: Sign in, upload PDF, ask question
-  B->>C: Render app and send requests
-  C->>S: POST /upload/pdf or GET /chat
-  S->>S: Parse PDF or build retrieval context
-  S->>Q: Store or fetch document payloads
-  S->>G: Generate answer from context
-  S-->>C: Return answer and retrieved sources
-  V-->>S: Support worker queue path when used
-```
+- **Node.js**: version 18+
+- **pnpm**: version 11+ (recommended)
+- **Docker**: For running containerized databases
+- **API Keys**:
+  - A **Groq API key** (required for chat answering)
+  - A **Clerk Account** (for frontend user authentication)
 
-## Requirements
-
-- Node.js 18+ or newer
-- pnpm 11+ recommended
-- Docker and Docker Compose
-- A Groq API key
-- A Clerk application for authentication
+---
 
 ## Local Setup
 
-1. Install dependencies in both apps.
+### 1. Install Dependencies
+Run in both the server and client folders:
 
 ```bash
 cd server
@@ -78,104 +69,68 @@ cd ../client
 pnpm install
 ```
 
-2. Start local infrastructure.
+### 2. Launch Local Databases
+Start Qdrant and Valkey (Redis-compatible):
 
 ```bash
 docker compose up -d
 ```
+This binds:
+* Qdrant on `http://localhost:6333`
+* Valkey on `localhost:6379`
 
-This starts:
-
-- Qdrant on `http://localhost:6333`
-- Valkey on `localhost:6379`
-
-3. Create your environment files from the app-specific examples.
+### 3. Setup Environment Variables
+Create the environment files from the app examples:
 
 ```bash
 cp server/.env.example server/.env
 cp client/.env.example client/.env
 ```
 
-Then fill the values as described below.
+Open each `.env` and fill in your keys:
+- **Server `.env`**:
+  * `GROQ_API_KEY`: Required for chat answering.
+- **Client `.env`**:
+  * `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk client key.
+  * `CLERK_SECRET_KEY`: Clerk server secret.
 
-4. Start the server.
+### 4. Run the Backend API and Worker
+Start the Express API server and the BullMQ background worker:
 
 ```bash
-cd server
+# In the server/ directory:
+# Start the API server
+pnpm run dev
+
+# Start the background worker (in a separate terminal)
+pnpm run dev:worker
+```
+
+### 5. Run the Client UI
+Start the Next.js development server:
+
+```bash
+# In the client/ directory:
 pnpm run dev
 ```
 
-5. Start the client.
+Open your browser to `http://localhost:3000`.
 
-```bash
-cd client
-pnpm run dev
-```
+---
 
-Open the app in the browser at `http://localhost:3000`.
-
-## Environment Variables
-
-### Server
-
-- `GROQ_API_KEY` - required, used for answer generation
-
-### Client
-
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - required for Clerk on the browser side
-- `CLERK_SECRET_KEY` - required for server-side Clerk auth checks
-
-## Example Keys
-
-You need to create these in the external services, then place the values in your `.env` files:
-
-- Groq API key from the Groq dashboard
-- Clerk publishable key and secret key from your Clerk application
-
-No repository secrets should be committed.
-
-The root `.env.example` is a convenience overview of the required variables across both apps.
-
-## API Endpoints
+## API Surface
 
 - `POST /upload/pdf`
-  - Accepts `multipart/form-data`
-  - Field name: `pdf`
-  - Stores the file locally and indexes it into Qdrant
+  - Accepts `multipart/form-data` with a `pdf` file field.
+  - Enqueues an ingestion job, waits for processing, and returns `200 OK` once finished.
+  
+- `GET /chat?message=<query>`
+  - Queries the vector index.
+  - Generates an LLM response grounded in matching passages.
+  - Returns the answer text and source document descriptors.
 
-- `GET /chat?message=...`
-  - Retrieves relevant PDF content from Qdrant
-  - Sends the context and question to Groq
-  - Returns the generated answer and the retrieved sources
+---
 
-## How Uploads Work
-
-The current upload flow is synchronous:
-
-1. The browser sends the PDF to `server/index.js`
-2. The server stores the file under `server/uploads/`
-3. The server parses the PDF and writes a single document into Qdrant
-4. The UI marks the PDF as ready once indexing succeeds
-
-The worker in `server/worker.js` is still present for queue-based processing, but the default upload path no longer depends on it.
-
-## Troubleshooting
-
-- If uploads fail, confirm the server is running on port `8000`.
-- If answers are empty or incorrect, confirm Qdrant is running and the collection exists.
-- If authentication fails, check the Clerk keys in `client/.env`.
-- If Groq responses fail, check `GROQ_API_KEY` in `server/.env`.
-- If ports are busy, stop the conflicting process or change the local port.
-
-## Development Notes
-
-- Uploaded PDFs are stored in `server/uploads/`
-- Qdrant collection name: `pdf-documents-langchain`
-- The client talks to the server at `http://localhost:8000`
-- The local infra defaults are defined in `docker-compose.yml`
-
-## Contributing
-
-- Keep secrets out of git
-- Update `Architecture.md` when the data flow changes
-- Update `.env.example` whenever a new required variable is added
+## Contributing & Logs
+* Refer to [Architecture.md](file:///home/adrish/Desktop/pdf-rag/Architecture.md) to understand the data sequence diagrams.
+* Review [Learning-journal.md](file:///home/adrish/Desktop/pdf-rag/Learning-journal.md) to check solved bugs and system design choices.

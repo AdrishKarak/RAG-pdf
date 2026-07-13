@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node --watch index.js",
-    "start": "node index.js",
-    "dev:worker": "node --env-file=.env --watch worker.js"
+    "dev": "node --watch src/app.js",
+    "start": "node src/app.js",
+    "dev:worker": "node --env-file=.env --watch src/queue/workers/pdfWorker.js"
   },
   "keywords": [],
   "author": "",
